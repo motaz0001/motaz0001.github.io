@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Testing Page</title>
+</head>
+<body>
+
+    <h1><span id="output"></span></h1>
+
+    <script>
+        // 1. Extract the 'p' query parameter from the URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const parameterValue = urlParams.get('p');
+        
+        // 2. Render the value as raw HTML (Vulnerable to XSS)
+        if (parameterValue) {
+            // WARNING: innerHTML executes any script tags or event handlers passed to it
+            document.getElementById('output').innerHTML = parameterValue;
+        } else {
+            document.getElementById('output').innerHTML = "No 'p' parameter found.";
+        }
+    </script>
+
+</body>
+</html>
