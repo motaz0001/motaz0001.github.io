@@ -3,63 +3,148 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Edge API Test Panel</title>
+    <title>Edge API Full Test Panel</title>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; background: #f9f9f9; color: #333; }
         h1 { color: #111; border-bottom: 2px solid #eee; padding-bottom: 10px; }
         .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 20px; }
-        button { background: #0070f3; color: white; border: none; padding: 10px 16px; border-radius: 5px; cursor: pointer; font-weight: 500; margin-right: 10px; }
+        .input-group { margin-bottom: 15px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+        input { padding: 8px 12px; border: 1px solid #ccc; border-radius: 4px; flex-grow: 1; max-width: 250px; }
+        button { background: #0070f3; color: white; border: none; padding: 9px 16px; border-radius: 4px; cursor: pointer; font-weight: 500; white-space: nowrap; }
         button:hover { background: #0051a8; }
-        pre { background: #1e1e1e; color: #39d353; padding: 15px; border-radius: 6px; overflow-x: auto; font-family: monospace; min-height: 40px; }
+        .danger-btn { background: #d93025; }
+        .danger-btn:hover { background: #a50e05; }
+        pre { background: #1e1e1e; color: #39d353; padding: 15px; border-radius: 6px; overflow-x: auto; font-family: monospace; min-height: 150px; white-space: pre-wrap; word-wrap: break-word;}
+        h3 { margin-top: 0; color: #444; font-size: 1.1em;}
     </style>
 </head>
 <body>
 
-    <h1>Edge API Test Terminal</h1>
+    <h1>Edge API Full Test Terminal</h1>
     
     <div class="card">
         <h3>1. System Diagnostics</h3>
-        <button onclick="runTest('status')">Check Status (GET /)</button>
-        <button onclick="runTest('ping')">Ping Test (GET /ping)</button>
+        <div class="input-group">
+            <button onclick="testSystem('/')">Check Status (GET /)</button>
+            <button onclick="testSystem('/ping')">Ping Test (GET /ping)</button>
+        </div>
     </div>
 
     <div class="card">
-        <h3>2. Data Operations</h3>
-        <button onclick="runTest('createUser')">Create Fake User (POST /users)</button>
+        <h3>2. Create User (POST)</h3>
+        <div class="input-group">
+            <input type="text" id="createName" placeholder="Enter Name (e.g., John Doe)">
+            <input type="text" id="createRole" placeholder="Enter Role (e.g., Admin)">
+            <button onclick="createUser()">Create User</button>
+        </div>
+    </div>
+
+    <div class="card">
+        <h3>3. Get User (GET)</h3>
+        <div class="input-group">
+            <input type="number" id="getId" placeholder="Enter User ID (e.g., 123)">
+            <button onclick="getUser()">Fetch User</button>
+        </div>
+    </div>
+
+    <div class="card">
+        <h3>4. Delete User (DELETE)</h3>
+        <div class="input-group">
+            <input type="number" id="deleteId" placeholder="Enter User ID (e.g., 123)">
+            <button class="danger-btn" onclick="deleteUser()">Delete User</button>
+        </div>
     </div>
 
     <div class="card">
         <h3>Response Console</h3>
-        <pre id="console">Click a test button above to execute the fetch request...</pre>
+        <pre id="console">Ready. Click a test button above to execute a request...</pre>
     </div>
 
     <script>
         const API_BASE_URL = 'https://api.tjdeed.me';
         const consoleEl = document.getElementById('console');
 
-        function logOutput(data) {
-            consoleEl.textContent = JSON.stringify(data, null, 2);
+        function logOutput(method, url, data) {
+            const timestamp = new Date().toLocaleTimeString();
+            const header = `[${timestamp}] ${method} ${url}\n-----------------------------------\n`;
+            consoleEl.textContent = header + JSON.stringify(data, null, 2);
         }
 
-        async function runTest(type) {
+        function logError(method, url, error) {
+            const timestamp = new Date().toLocaleTimeString();
+            const header = `[${timestamp}] ERROR: ${method} ${url}\n-----------------------------------\n`;
+            consoleEl.textContent = header + error.message;
+        }
+
+        async function testSystem(path) {
             consoleEl.textContent = 'Executing request...';
             try {
-                let response;
-                if (type === 'status') {
-                    response = await fetch(`${API_BASE_URL}/`);
-                } else if (type === 'ping') {
-                    response = await fetch(`${API_BASE_URL}/ping`);
-                } else if (type === 'createUser') {
-                    response = await fetch(`${API_BASE_URL}/users`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ name: "Test Agent", role: "QA" })
-                    });
-                }
+                const response = await fetch(`${API_BASE_URL}${path}`);
                 const data = await response.json();
-                logOutput(data);
+                logOutput('GET', path, data);
             } catch (error) {
-                logOutput({ error: error.message, details: "Check console or CORS configuration rules." });
+                logError('GET', path, error);
+            }
+        }
+
+        async function createUser() {
+            const name = document.getElementById('createName').value;
+            const role = document.getElementById('createRole').value;
+            
+            if (!name || !role) {
+                consoleEl.textContent = "Error: Please provide both a Name and a Role.";
+                return;
+            }
+
+            consoleEl.textContent = 'Executing request...';
+            try {
+                const response = await fetch(`${API_BASE_URL}/users`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: name, role: role })
+                });
+                const data = await response.json();
+                logOutput('POST', '/users', data);
+            } catch (error) {
+                logError('POST', '/users', error);
+            }
+        }
+
+        async function getUser() {
+            const id = document.getElementById('getId').value;
+            
+            if (!id) {
+                consoleEl.textContent = "Error: Please provide a User ID.";
+                return;
+            }
+
+            consoleEl.textContent = 'Executing request...';
+            try {
+                const response = await fetch(`${API_BASE_URL}/users/${id}`);
+                const data = await response.json();
+                logOutput('GET', `/users/${id}`, data);
+            } catch (error) {
+                logError('GET', `/users/${id}`, error);
+            }
+        }
+
+        async function deleteUser() {
+            const id = document.getElementById('deleteId').value;
+            
+            if (!id) {
+                consoleEl.textContent = "Error: Please provide a User ID.";
+                return;
+            }
+
+            consoleEl.textContent = 'Executing request...';
+            try {
+                const response = await fetch(`${API_BASE_URL}/users/${id}`, {
+                    method: 'DELETE'
+                });
+                const data = await response.json();
+                logOutput('DELETE', `/users/${id}`, data);
+            } catch (error) {
+                logError('DELETE', `/users/${id}`, error);
             }
         }
     </script>
