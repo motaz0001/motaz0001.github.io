@@ -3,17 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>API Panel</title>
+    <title>API Security Test</title>
     <style>
-        /* Widened max-width to comfortably fit two columns */
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; max-width: 1200px; margin: 40px auto; padding: 0 20px; background: #f9f9f9; color: #333; }
         h1 { color: #111; border-bottom: 2px solid #eee; padding-bottom: 10px; margin-bottom: 20px;}
         
-        /* Two-column layout */
         .layout-container { display: flex; gap: 30px; align-items: flex-start; }
         .controls-column { flex: 1; min-width: 350px; }
-        
-        /* Sticky console column */
         .console-column { flex: 1; min-width: 350px; position: sticky; top: 20px; }
 
         .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 20px; }
@@ -25,11 +21,9 @@
         .danger-btn:hover { background: #a50e05; }
         h3 { margin-top: 0; color: #444; font-size: 1.1em;}
         
-        /* Stretched console box */
         .console-card { display: flex; flex-direction: column; height: calc(100vh - 120px); margin-bottom: 0; }
-        pre { background: #1e1e1e; color: #39d353; padding: 15px; border-radius: 6px; overflow-x: auto; font-family: monospace; flex-grow: 1; margin: 0; white-space: pre-wrap; word-wrap: break-word; }
+        pre { background: #1e1e1e; color: #39d353; padding: 15px; border-radius: 6px; overflow-x: auto; font-family: monospace; flex-grow: 1; margin: 0; white-space: pre-wrap; word-wrap: break-word; font-size: 13px;}
 
-        /* Responsive design: Stack columns on smaller screens */
         @media (max-width: 800px) {
             .layout-container { flex-direction: column; }
             .console-column { position: static; width: 100%; }
@@ -43,6 +37,7 @@
     
     <div class="layout-container">
         <div class="controls-column">
+            
             <div class="card">
                 <h3>1. System Diagnostics</h3>
                 <div class="input-group">
@@ -61,20 +56,25 @@
             </div>
 
             <div class="card">
-                <h3>3. Get User (GET)</h3>
+                <h3>3. Get / Delete User</h3>
                 <div class="input-group">
-                    <input type="number" id="getId" placeholder="Enter User ID (e.g., 123)">
-                    <button onclick="getUser()">Fetch User</button>
+                    <input type="number" id="userId" placeholder="Enter User ID (e.g., 123)">
+                    <button onclick="getUser()">Fetch User (GET)</button>
+                    <button class="danger-btn" onclick="deleteUser()">Delete User (DELETE)</button>
                 </div>
             </div>
 
             <div class="card">
-                <h3>4. Delete User (DELETE)</h3>
+                <h3>4. AI Security (WAF & DLP Test)</h3>
                 <div class="input-group">
-                    <input type="number" id="deleteId" placeholder="Enter User ID (e.g., 123)">
-                    <button class="danger-btn" onclick="deleteUser()">Delete User</button>
+                    <input type="text" id="aiPrompt" placeholder="Try an injection prompt..." style="max-width: 100%;">
+                </div>
+                <div class="input-group">
+                    <button onclick="testLLM('/llm-safe')">Test Inbound (Send Prompt)</button>
+                    <button class="danger-btn" onclick="testLLM('/llm-leak')">Test Outbound (Force PII Leak)</button>
                 </div>
             </div>
+
         </div>
 
         <div class="console-column">
@@ -89,88 +89,81 @@
         const API_BASE_URL = 'https://api.tjdeed.me';
         const consoleEl = document.getElementById('console');
 
-        function logOutput(method, url, data) {
-            const timestamp = new Date().toLocaleTimeString();
-            const header = `[${timestamp}] ${method} ${url}\n-----------------------------------\n`;
-            consoleEl.textContent = header + JSON.stringify(data, null, 2);
-        }
-
-        function logError(method, url, error) {
-            const timestamp = new Date().toLocaleTimeString();
-            const header = `[${timestamp}] ERROR: ${method} ${url}\n-----------------------------------\n`;
-            consoleEl.textContent = header + error.message;
-        }
-
-        async function testSystem(path) {
-            consoleEl.textContent = 'Executing request...';
+        // This master function handles ALL requests and prints exact HTTP codes
+        async function executeRequest(method, path, fetchPromise) {
+            consoleEl.textContent = `Executing ${method} request to ${path}...\nWaiting for network...`;
+            
             try {
-                const response = await fetch(`${API_BASE_URL}${path}`);
-                const data = await response.json();
-                logOutput('GET', path, data);
+                const response = await fetchPromise;
+                
+                // 1. Capture the exact HTTP Status (e.g., 200 OK, 403 Forbidden)
+                const httpStatus = `${response.status} ${response.statusText}`;
+                
+                // 2. Read the body safely (JSON if possible, plain text/HTML if blocked by WAF)
+                let bodyData;
+                const contentType = response.headers.get("content-type");
+                
+                if (contentType && contentType.includes("application/json")) {
+                    const jsonData = await response.json();
+                    bodyData = JSON.stringify(jsonData, null, 2);
+                } else {
+                    bodyData = await response.text();
+                }
+
+                // 3. Format the console output
+                const timestamp = new Date().toLocaleTimeString();
+                const header = `[${timestamp}] ${method} ${path}\nHTTP Status: ${httpStatus}\n-----------------------------------\n`;
+                consoleEl.textContent = header + bodyData;
+
             } catch (error) {
-                logError('GET', path, error);
+                // This ONLY fires on severe network failures (CORS blocked, DNS failed, server offline)
+                const timestamp = new Date().toLocaleTimeString();
+                const header = `[${timestamp}] ${method} ${path}\nHTTP Status: FATAL NETWORK ERROR\n-----------------------------------\n`;
+                consoleEl.textContent = header + error.message + "\n\n(This usually means CORS is completely blocked, or the server is unreachable.)";
             }
         }
 
-        async function createUser() {
+        // --- Endpoint Callers ---
+
+        function testSystem(path) {
+            executeRequest('GET', path, fetch(`${API_BASE_URL}${path}`));
+        }
+
+        function createUser() {
             const name = document.getElementById('createName').value;
             const role = document.getElementById('createRole').value;
-            
-            if (!name || !role) {
-                consoleEl.textContent = "Error: Please provide both a Name and a Role.";
-                return;
-            }
+            if (!name || !role) return alert("Please provide both Name and Role");
 
-            consoleEl.textContent = 'Executing request...';
-            try {
-                const response = await fetch(`${API_BASE_URL}/users`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name: name, role: role })
-                });
-                const data = await response.json();
-                logOutput('POST', '/users', data);
-            } catch (error) {
-                logError('POST', '/users', error);
-            }
+            const request = fetch(`${API_BASE_URL}/users`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, role })
+            });
+            executeRequest('POST', '/users', request);
         }
 
-        async function getUser() {
-            const id = document.getElementById('getId').value;
-            
-            if (!id) {
-                consoleEl.textContent = "Error: Please provide a User ID.";
-                return;
-            }
-
-            consoleEl.textContent = 'Executing request...';
-            try {
-                const response = await fetch(`${API_BASE_URL}/users/${id}`);
-                const data = await response.json();
-                logOutput('GET', `/users/${id}`, data);
-            } catch (error) {
-                logError('GET', `/users/${id}`, error);
-            }
+        function getUser() {
+            const id = document.getElementById('userId').value;
+            if (!id) return alert("Please provide a User ID");
+            executeRequest('GET', `/users/${id}`, fetch(`${API_BASE_URL}/users/${id}`));
         }
 
-        async function deleteUser() {
-            const id = document.getElementById('deleteId').value;
-            
-            if (!id) {
-                consoleEl.textContent = "Error: Please provide a User ID.";
-                return;
-            }
+        function deleteUser() {
+            const id = document.getElementById('userId').value;
+            if (!id) return alert("Please provide a User ID");
+            executeRequest('DELETE', `/users/${id}`, fetch(`${API_BASE_URL}/users/${id}`, { method: 'DELETE' }));
+        }
 
-            consoleEl.textContent = 'Executing request...';
-            try {
-                const response = await fetch(`${API_BASE_URL}/users/${id}`, {
-                    method: 'DELETE'
-                });
-                const data = await response.json();
-                logOutput('DELETE', `/users/${id}`, data);
-            } catch (error) {
-                logError('DELETE', `/users/${id}`, error);
-            }
+        function testLLM(endpointPath) {
+            const prompt = document.getElementById('aiPrompt').value;
+            if (!prompt) return alert("Please enter an AI prompt to test.");
+
+            const request = fetch(`${API_BASE_URL}${endpointPath}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ prompt })
+            });
+            executeRequest('POST', endpointPath, request);
         }
     </script>
 </body>
