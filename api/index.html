@@ -89,8 +89,8 @@
         const API_BASE_URL = 'https://api.tjdeed.me';
         const consoleEl = document.getElementById('console');
 
-        // This master function handles ALL requests and prints exact HTTP codes
-async function executeRequest(method, path, fetchPromise) {
+        // Master function: Handles the fetch, HTTP codes, and WAF HTML parsing
+        async function executeRequest(method, path, fetchPromise) {
             consoleEl.textContent = `Executing ${method} request to ${path}...\nWaiting for network...`;
             
             try {
@@ -108,7 +108,7 @@ async function executeRequest(method, path, fetchPromise) {
                 else if (contentType && contentType.includes("text/html")) {
                     const htmlText = await response.text();
                     
-                    // Secretly parse the HTML in the background
+                    // Parse the HTML in the background
                     const parser = new DOMParser();
                     const doc = parser.parseFromString(htmlText, "text/html");
                     
@@ -116,7 +116,7 @@ async function executeRequest(method, path, fetchPromise) {
                     const pageTitle = doc.querySelector('title') ? doc.querySelector('title').innerText.split('|')[0].trim() : 'HTML Response';
                     const mainError = doc.querySelector('h2') ? doc.querySelector('h2').innerText.trim() : 'Unknown Error';
                     
-                    bodyData = `[Cloudflare Intercept]\nAlert: ${pageTitle}\nDetails: ${mainError};
+                    bodyData = `[Cloudflare Intercept]\nAlert: ${pageTitle}\nDetails: ${mainError}\n\n(Visual HTML template hidden for dashboard readability.)`;
                 } 
                 // 3. Fallback for raw text
                 else {
@@ -134,7 +134,7 @@ async function executeRequest(method, path, fetchPromise) {
             }
         }
 
-        // --- Endpoint Callers ---
+        // --- Button Click Functions ---
 
         function testSystem(path) {
             executeRequest('GET', path, fetch(`${API_BASE_URL}${path}`));
