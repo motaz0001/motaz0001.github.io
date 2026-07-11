@@ -5,8 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Edge API Full Test Panel</title>
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; background: #f9f9f9; color: #333; }
-        h1 { color: #111; border-bottom: 2px solid #eee; padding-bottom: 10px; }
+        /* Widened max-width to comfortably fit two columns */
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; max-width: 1200px; margin: 40px auto; padding: 0 20px; background: #f9f9f9; color: #333; }
+        h1 { color: #111; border-bottom: 2px solid #eee; padding-bottom: 10px; margin-bottom: 20px;}
+        
+        /* Two-column layout */
+        .layout-container { display: flex; gap: 30px; align-items: flex-start; }
+        .controls-column { flex: 1; min-width: 350px; }
+        
+        /* Sticky console column */
+        .console-column { flex: 1; min-width: 350px; position: sticky; top: 20px; }
+
         .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 20px; }
         .input-group { margin-bottom: 15px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
         input { padding: 8px 12px; border: 1px solid #ccc; border-radius: 4px; flex-grow: 1; max-width: 250px; }
@@ -14,50 +23,66 @@
         button:hover { background: #0051a8; }
         .danger-btn { background: #d93025; }
         .danger-btn:hover { background: #a50e05; }
-        pre { background: #1e1e1e; color: #39d353; padding: 15px; border-radius: 6px; overflow-x: auto; font-family: monospace; min-height: 150px; white-space: pre-wrap; word-wrap: break-word;}
         h3 { margin-top: 0; color: #444; font-size: 1.1em;}
+        
+        /* Stretched console box */
+        .console-card { display: flex; flex-direction: column; height: calc(100vh - 120px); margin-bottom: 0; }
+        pre { background: #1e1e1e; color: #39d353; padding: 15px; border-radius: 6px; overflow-x: auto; font-family: monospace; flex-grow: 1; margin: 0; white-space: pre-wrap; word-wrap: break-word; }
+
+        /* Responsive design: Stack columns on smaller screens */
+        @media (max-width: 800px) {
+            .layout-container { flex-direction: column; }
+            .console-column { position: static; width: 100%; }
+            .console-card { height: 400px; }
+        }
     </style>
 </head>
 <body>
 
-    <h1>Edge API Full Test Terminal</h1>
+    <h1>EAPI Terminal</h1>
     
-    <div class="card">
-        <h3>1. System Diagnostics</h3>
-        <div class="input-group">
-            <button onclick="testSystem('/')">Check Status (GET /)</button>
-            <button onclick="testSystem('/ping')">Ping Test (GET /ping)</button>
-        </div>
-    </div>
+    <div class="layout-container">
+        <div class="controls-column">
+            <div class="card">
+                <h3>1. System Diagnostics</h3>
+                <div class="input-group">
+                    <button onclick="testSystem('/')">Check Status (GET /)</button>
+                    <button onclick="testSystem('/ping')">Ping Test (GET /ping)</button>
+                </div>
+            </div>
 
-    <div class="card">
-        <h3>2. Create User (POST)</h3>
-        <div class="input-group">
-            <input type="text" id="createName" placeholder="Enter Name (e.g., John Doe)">
-            <input type="text" id="createRole" placeholder="Enter Role (e.g., Admin)">
-            <button onclick="createUser()">Create User</button>
-        </div>
-    </div>
+            <div class="card">
+                <h3>2. Create User (POST)</h3>
+                <div class="input-group">
+                    <input type="text" id="createName" placeholder="Enter Name (e.g., John Doe)">
+                    <input type="text" id="createRole" placeholder="Enter Role (e.g., Admin)">
+                    <button onclick="createUser()">Create User</button>
+                </div>
+            </div>
 
-    <div class="card">
-        <h3>3. Get User (GET)</h3>
-        <div class="input-group">
-            <input type="number" id="getId" placeholder="Enter User ID (e.g., 123)">
-            <button onclick="getUser()">Fetch User</button>
-        </div>
-    </div>
+            <div class="card">
+                <h3>3. Get User (GET)</h3>
+                <div class="input-group">
+                    <input type="number" id="getId" placeholder="Enter User ID (e.g., 123)">
+                    <button onclick="getUser()">Fetch User</button>
+                </div>
+            </div>
 
-    <div class="card">
-        <h3>4. Delete User (DELETE)</h3>
-        <div class="input-group">
-            <input type="number" id="deleteId" placeholder="Enter User ID (e.g., 123)">
-            <button class="danger-btn" onclick="deleteUser()">Delete User</button>
+            <div class="card">
+                <h3>4. Delete User (DELETE)</h3>
+                <div class="input-group">
+                    <input type="number" id="deleteId" placeholder="Enter User ID (e.g., 123)">
+                    <button class="danger-btn" onclick="deleteUser()">Delete User</button>
+                </div>
+            </div>
         </div>
-    </div>
 
-    <div class="card">
-        <h3>Response Console</h3>
-        <pre id="console">Ready. Click a test button above to execute a request...</pre>
+        <div class="console-column">
+            <div class="card console-card">
+                <h3>Response Console</h3>
+                <pre id="console">Ready. Click a test button on the left to execute a request...</pre>
+            </div>
+        </div>
     </div>
 
     <script>
