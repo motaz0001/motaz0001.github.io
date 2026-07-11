@@ -90,36 +90,47 @@
         const consoleEl = document.getElementById('console');
 
         // This master function handles ALL requests and prints exact HTTP codes
-        async function executeRequest(method, path, fetchPromise) {
+async function executeRequest(method, path, fetchPromise) {
             consoleEl.textContent = `Executing ${method} request to ${path}...\nWaiting for network...`;
             
             try {
                 const response = await fetchPromise;
-                
-                // 1. Capture the exact HTTP Status (e.g., 200 OK, 403 Forbidden)
                 const httpStatus = `${response.status} ${response.statusText}`;
-                
-                // 2. Read the body safely (JSON if possible, plain text/HTML if blocked by WAF)
-                let bodyData;
                 const contentType = response.headers.get("content-type");
+                let bodyData;
                 
+                // 1. If it's a standard JSON API response
                 if (contentType && contentType.includes("application/json")) {
                     const jsonData = await response.json();
                     bodyData = JSON.stringify(jsonData, null, 2);
-                } else {
+                } 
+                // 2. If the WAF blocks it and returns the Cloudflare HTML template
+                else if (contentType && contentType.includes("text/html")) {
+                    const htmlText = await response.text();
+                    
+                    // Secretly parse the HTML in the background
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(htmlText, "text/html");
+                    
+                    // Extract the core error messages
+                    const pageTitle = doc.querySelector('title') ? doc.querySelector('title').innerText.split('|')[0].trim() : 'HTML Response';
+                    const mainError = doc.querySelector('h2') ? doc.querySelector('h2').innerText.trim() : 'Unknown Error';
+                    
+                    bodyData = `[Cloudflare Intercept]\nAlert: ${pageTitle}\nDetails: ${mainError};
+                } 
+                // 3. Fallback for raw text
+                else {
                     bodyData = await response.text();
                 }
 
-                // 3. Format the console output
                 const timestamp = new Date().toLocaleTimeString();
                 const header = `[${timestamp}] ${method} ${path}\nHTTP Status: ${httpStatus}\n-----------------------------------\n`;
                 consoleEl.textContent = header + bodyData;
 
             } catch (error) {
-                // This ONLY fires on severe network failures (CORS blocked, DNS failed, server offline)
                 const timestamp = new Date().toLocaleTimeString();
                 const header = `[${timestamp}] ${method} ${path}\nHTTP Status: FATAL NETWORK ERROR\n-----------------------------------\n`;
-                consoleEl.textContent = header + error.message + "\n\n(This usually means CORS is completely blocked, or the server is unreachable.)";
+                consoleEl.textContent = header + error.message;
             }
         }
 
