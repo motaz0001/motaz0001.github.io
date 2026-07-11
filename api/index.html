@@ -116,7 +116,7 @@
                     const pageTitle = doc.querySelector('title') ? doc.querySelector('title').innerText.split('|')[0].trim() : 'HTML Response';
                     const mainError = doc.querySelector('h2') ? doc.querySelector('h2').innerText.trim() : 'Unknown Error';
                     
-                    bodyData = `\n${pageTitle}\n${mainError})`;
+                    bodyData = `\n${pageTitle}\n${mainError}`;
                 } 
                 // 3. Fallback for raw text
                 else {
